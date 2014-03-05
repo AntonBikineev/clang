@@ -2214,6 +2214,7 @@ private:
                               AccessSpecifier AS = AS_none,
                               Decl **OwnedType = 0);
   Decl *ParseStaticAssertDeclaration(SourceLocation &DeclEnd);
+  Decl *ParseStaticIfDeclaration(SourceLocation &DeclEnd);
   Decl *ParseNamespaceAlias(SourceLocation NamespaceLoc,
                             SourceLocation AliasLoc, IdentifierInfo *Alias,
                             SourceLocation &DeclEnd);

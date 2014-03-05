@@ -11,6 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+// debug
+#include <iostream>
+
 #include "clang/Parse/Parser.h"
 #include "RAIIObjectsForParser.h"
 #include "clang/AST/DeclTemplate.h"
@@ -273,6 +276,7 @@ Decl *Parser::ParseNamespaceAlias(SourceLocation NamespaceLoc,
 
 /// ParseLinkage - We know that the current token is a string_literal
 /// and just before that, that extern was seen.
+//
 ///
 ///       linkage-specification: [C++ 7.5p2: dcl.link]
 ///         'extern' string-literal '{' declaration-seq[opt] '}'
@@ -682,6 +686,110 @@ Decl *Parser::ParseStaticAssertDeclaration(SourceLocation &DeclEnd){
                                               AssertExpr.take(),
                                               AssertMessage.take(),
                                               T.getCloseLocation());
+}
+
+/// ParseStaticIfDeclaration - Parse C++0x or C11 static if declaration -
+/// proposal of Sutter, Alexandrescu...
+///
+Decl *Parser::ParseStaticIfDeclaration(SourceLocation &DeclEnd){
+  assert((Tok.is(tok::kw_static) ) && (NextToken().is(tok::kw_if)) &&
+         "Not a static assert declaration");
+
+  std::cout << "found static if\n";
+  SourceLocation StaticLoc = ConsumeToken(); // eat static
+  SourceLocation IfLoc = ConsumeToken(); // eat if
+
+  if (Tok.isNot(tok::l_paren)) {
+    Diag(Tok, diag::err_expected_lparen_after) << "if";
+    SkipUntil(tok::semi);
+    return 0;
+  }
+
+  BalancedDelimiterTracker T(*this, tok::l_paren);
+  if (T.consumeOpen()) {
+    Diag(Tok, diag::err_expected) << tok::l_paren;
+    SkipMalformedDecl();
+    return 0;
+  }
+
+  ExprResult IfExpr(ParseConstantExpression());
+  if (IfExpr.isInvalid()) {
+    SkipMalformedDecl();
+    return 0;
+  }
+  T.consumeClose();
+
+  bool C99orCXX = getLangOpts().C99 || getLangOpts().CPlusPlus;
+
+  ParseScope InnerScope(this, Scope::DeclScope,
+                        C99orCXX && Tok.isNot(tok::l_brace));
+
+  // Read the 'then' stmt.
+  SourceLocation ThenStmtLoc = Tok.getLocation();
+
+  SourceLocation InnerStatementTrailingElseLoc;
+  StmtResult ThenStmt(ParseStatement(&InnerStatementTrailingElseLoc));
+
+  // Pop the 'if' scope if needed.
+  InnerScope.Exit();
+
+  // If it has an else, parse it.
+  SourceLocation ElseLoc;
+  SourceLocation ElseStmtLoc;
+  StmtResult ElseStmt;
+
+  if (Tok.is(tok::kw_else)) {
+    //if (TrailingElseLoc)
+      //*TrailingElseLoc = Tok.getLocation();
+
+    ElseLoc = ConsumeToken();
+    ElseStmtLoc = Tok.getLocation();
+
+    // C99 6.8.4p3 - In C99, the body of the if statement is a scope, even if
+    // there is no compound stmt.  C90 does not have this clause.  We only do
+    // this if the body isn't a compound statement to avoid push/pop in common
+    // cases.
+    //
+    // C++ 6.4p1:
+    // The substatement in a selection-statement (each substatement, in the else
+    // form of the if statement) implicitly defines a local scope.
+    //
+    ParseScope InnerScope(this, Scope::DeclScope,
+                          C99orCXX && Tok.isNot(tok::l_brace));
+
+    ElseStmt = ParseStatement();
+
+    // Pop the 'else' scope if needed.
+    InnerScope.Exit();
+  } else if (Tok.is(tok::code_completion)) {
+    Actions.CodeCompleteAfterIf(getCurScope());
+    cutOffParsing();
+    return 0;
+  } else if (InnerStatementTrailingElseLoc.isValid()) {
+    Diag(InnerStatementTrailingElseLoc, diag::warn_dangling_else);
+  }
+
+  // If the then or else stmt is invalid and the other is valid (and present),
+  // make turn the invalid one into a null stmt to avoid dropping the other
+  // part.  If both are invalid, return error.
+  if ((ThenStmt.isInvalid() && ElseStmt.isInvalid()) ||
+      (ThenStmt.isInvalid() && ElseStmt.get() == 0) ||
+      (ThenStmt.get() == 0  && ElseStmt.isInvalid())) {
+    // Both invalid, or one is invalid and other is non-present: return error.
+    return 0;
+  }
+
+  // Now if either are invalid, replace with a ';'.
+  if (ThenStmt.isInvalid())
+    ThenStmt = Actions.ActOnNullStmt(ThenStmtLoc);
+  if (ElseStmt.isInvalid())
+    ElseStmt = Actions.ActOnNullStmt(ElseStmtLoc);
+
+  return Actions.ActOnStaticIfDeclaration(StaticLoc,
+                                              IfExpr.take(),
+                                              ThenStmt.get(),
+                                              ElseLoc,
+                                              ElseStmt.get());
 }
 
 /// ParseDecltypeSpecifier - Parse a C++11 decltype specifier.

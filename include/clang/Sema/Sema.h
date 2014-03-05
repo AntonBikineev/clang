@@ -4826,6 +4826,18 @@ public:
                                      SourceLocation RParenLoc,
                                      bool Failed);
 
+  Decl *ActOnStaticIfDeclaration(SourceLocation StaticIfLoc,
+                                     Expr *IfExpr,
+                                     Stmt *ThenVal,
+                                     SourceLocation ElseLoc,
+                                     Stmt *ElseVal);
+  Decl *BuildStaticIfDeclaration(SourceLocation StaticIfLoc,
+                                     Expr *IfExpr,
+                                     Stmt *ThenVal,
+                                     SourceLocation ElseLoc,
+                                     Stmt *ElseVal,
+                                     bool Failed);
+
   FriendDecl *CheckFriendTypeDecl(SourceLocation LocStart,
                                   SourceLocation FriendLoc,
                                   TypeSourceInfo *TSInfo);

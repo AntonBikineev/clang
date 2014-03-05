@@ -1356,6 +1356,12 @@ Parser::DeclGroupPtrTy Parser::ParseDeclaration(StmtVector &Stmts,
     ProhibitAttributes(attrs);
     SingleDecl = ParseStaticAssertDeclaration(DeclEnd);
     break;
+  case tok::kw_static:
+    if (NextToken().is(tok::kw_if))
+    {
+      SingleDecl = ParseStaticIfDeclaration(DeclEnd);
+      break;
+    }
   default:
     return ParseSimpleDeclaration(Stmts, Context, DeclEnd, attrs, true);
   }

@@ -11356,6 +11356,57 @@ Decl *Sema::BuildStaticAssertDeclaration(SourceLocation StaticAssertLoc,
   return Decl;
 }
 
+Decl *Sema::ActOnStaticIfDeclaration(SourceLocation StaticIfLoc,
+                                         Expr *IfExpr,
+                                         Stmt *ThenVal,
+                                         SourceLocation ElseLoc,
+                                         Stmt *ElseVal
+                                         ) {
+  //if (DiagnoseUnexpandedParameterPack(AssertExpr, UPPC_StaticAssertExpression))
+    //return 0;
+
+  return BuildStaticIfDeclaration(StaticIfLoc, IfExpr,
+                                      ThenVal, ElseLoc, ElseVal, false);
+}
+
+Decl *Sema::BuildStaticIfDeclaration(SourceLocation StaticIfLoc,
+                                         Expr *IfExpr,
+                                         Stmt *ThenVal,
+                                         SourceLocation ElseLoc,
+                                         Stmt *ElseVal,
+                                         bool Failed
+                                         ) {
+  if (!IfExpr->isTypeDependent() && !IfExpr->isValueDependent()){
+    // In a static_assert-declaration, the constant-expression shall be a
+    // constant expression that can be contextually converted to bool.
+    ExprResult Converted = PerformContextuallyConvertToBool(IfExpr);
+    if (Converted.isInvalid())
+      Failed = true;
+
+    llvm::APSInt Cond;
+    if (!Failed && VerifyIntegerConstantExpression(Converted.get(), &Cond,
+          diag::err_static_if_expression_is_not_constant,
+          /*AllowFold=*/false).isInvalid())
+      Failed = true;
+
+    //if (!Failed && !Cond) {
+      //SmallString<256> MsgBuffer;
+      //llvm::raw_svector_ostream Msg(MsgBuffer);
+      //AssertMessage->printPretty(Msg, 0, getPrintingPolicy());
+      //Diag(StaticAssertLoc, diag::err_static_assert_failed)
+        //<< Msg.str() << AssertExpr->getSourceRange();
+      //Failed = true;
+    //}
+  }
+
+  //Decl *Decl = StaticAssertDecl::Create(Context, CurContext, StaticAssertLoc,
+                                        //AssertExpr, AssertMessage, RParenLoc,
+                                        //Failed);
+
+  //CurContext->addDecl(Decl);
+  return 0;
+}
+
 /// \brief Perform semantic analysis of the given friend type declaration.
 ///
 /// \returns A friend declaration that.
