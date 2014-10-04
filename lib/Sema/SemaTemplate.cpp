@@ -6231,7 +6231,8 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
       TemplateDeductionInfo Info(KWLoc);
       if (!DeduceTemplateArguments(ThisPartialSpec,
                                       S->getTemplateArgs(),
-                                      Info)) {
+                                      Info) &&
+          S->getSpecializationKind() != TSK_ExplicitSpecialization) {
         auto InstantiatedFrom =
           S->getInstantiatedFrom().dyn_cast<ClassTemplatePartialSpecializationDecl*>();
         if (!InstantiatedFrom ||
