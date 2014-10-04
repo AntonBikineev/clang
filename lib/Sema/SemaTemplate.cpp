@@ -6193,6 +6193,37 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
         }
       }
     }
+
+    // C++ [temp.class.spec]p1:
+    //   A partial specialization shall be declared before the first use of a class
+    //   template specialization that would make use of partial specialization as
+    //   the result of an implicit or explicit instantiation in every translation
+    //   unit in which such a use occurs; no diagnostic is required.
+    if (isPartialSpecialization) {
+      for (auto S = ClassTemplate->spec_begin(),
+             SEnd = ClassTemplate->spec_end();
+           S != SEnd; ++S) {
+        TemplateDeductionInfo Info(KWLoc);
+        if (!DeduceTemplateArguments(Partial,
+                                        S->getTemplateArgs(),
+                                        Info)) {
+          auto InstantiatedFrom =
+            S->getInstantiatedFrom().dyn_cast<ClassTemplatePartialSpecializationDecl*>();
+          if (!InstantiatedFrom ||
+              getMoreSpecializedPartialSpecialization(Partial, InstantiatedFrom, KWLoc)
+                == Partial) {
+            SourceRange Range(TemplateNameLoc, RAngleLoc);
+            Diag(TemplateNameLoc, diag::err_specialization_after_instantiation)
+              << Context.getTypeDeclType(Partial) << Range;
+
+            Diag(S->getPointOfInstantiation(),
+                 diag::note_instantiation_required_here)
+              << (S->getTemplateSpecializationKind() != TSK_ImplicitInstantiation);
+            return true;
+          }
+        }
+      }
+    }
   } else {
     // Create a new class template specialization declaration node for
     // this explicit specialization or friend declaration.
