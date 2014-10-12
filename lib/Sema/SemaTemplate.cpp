@@ -6223,29 +6223,28 @@ Sema::ActOnClassTemplateSpecialization(Scope *S, unsigned TagSpec,
   //   the result of an implicit or explicit instantiation in every translation
   //   unit in which such a use occurs; no diagnostic is required.
   if (isPartialSpecialization) {
-    auto const ThisPartialSpec =
-      static_cast<ClassTemplatePartialSpecializationDecl*>(Specialization);
-    for (auto S = ClassTemplate->spec_begin(),
-           SEnd = ClassTemplate->spec_end();
+    auto *const ThisPartialSpec =
+        static_cast<ClassTemplatePartialSpecializationDecl *>(Specialization);
+    for (auto S = ClassTemplate->spec_begin(), SEnd = ClassTemplate->spec_end();
          S != SEnd; ++S) {
       TemplateDeductionInfo Info(KWLoc);
-      if (!DeduceTemplateArguments(ThisPartialSpec,
-                                      S->getTemplateArgs(),
-                                      Info) &&
-          S->getSpecializationKind() != TSK_ExplicitSpecialization) {
-        auto InstantiatedFrom =
-          S->getInstantiatedFrom().dyn_cast<ClassTemplatePartialSpecializationDecl*>();
+      if (S->getSpecializationKind() != TSK_ExplicitSpecialization &&
+          S->hasDefinition() &&
+          !DeduceTemplateArguments(ThisPartialSpec, S->getTemplateArgs(), Info)) {
+        auto *const InstantiatedFrom =
+            S->getInstantiatedFrom()
+                .dyn_cast<ClassTemplatePartialSpecializationDecl *>();
         if (!InstantiatedFrom ||
-            getMoreSpecializedPartialSpecialization(ThisPartialSpec, InstantiatedFrom, KWLoc)
-              == ThisPartialSpec) {
+            getMoreSpecializedPartialSpecialization(
+                ThisPartialSpec, InstantiatedFrom, KWLoc) == ThisPartialSpec) {
           SourceRange Range(TemplateNameLoc, RAngleLoc);
           Diag(TemplateNameLoc, diag::err_part_specialization_after_instantiation)
-            << Context.getTypeDeclType(ThisPartialSpec) << Range;
+              << Context.getTypeDeclType(ThisPartialSpec) << Range;
 
           Diag(S->getPointOfInstantiation(),
                diag::note_instantiation_required_here)
-            << (S->getTemplateSpecializationKind() != TSK_ImplicitInstantiation);
-          return true;
+              << (S->getTemplateSpecializationKind() !=
+                  TSK_ImplicitInstantiation);
         }
       }
     }
